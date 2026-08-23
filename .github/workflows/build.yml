@@ -8,15 +8,15 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 9.0.x
       - name: Restore and build
         run: dotnet build src/DualSound/DualSound.csproj -c Release
       - name: Publish self-contained app
         run: dotnet publish src/DualSound/DualSound.csproj -c Release -r win-x64 --self-contained true -o artifacts/win-x64
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: DualSound-win-x64
           path: artifacts/win-x64/DualSound.exe
