@@ -1,0 +1,55 @@
+name: Release Windows app
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 9.0.x
+      - name: Publish self-contained executable
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          if ($version -notmatch '^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$') {
+            throw "Tag $env:GITHUB_REF_NAME does not contain a valid version"
+          }
+          dotnet publish src/DualSound/DualSound.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:Version=$version `
+            -o artifacts/win-x64
+      - name: Write checksum
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash artifacts/win-x64/DualSound.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  DualSound.exe" | Set-Content artifacts/SHA256SUMS.txt
+      - name: Create or update GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $files = @(
+            'artifacts/win-x64/DualSound.exe',
+            'artifacts/SHA256SUMS.txt'
+          )
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag @files --clobber
+          } else {
+            gh release create $tag @files --generate-notes --title $tag
+          }
+          if ($LASTEXITCODE -ne 0) {
+            throw "GitHub release command failed"
+          }
